@@ -1,0 +1,4 @@
+[console_scripts]
+listener = web_comunication.listener:main
+talker = web_comunication.talker:main
+

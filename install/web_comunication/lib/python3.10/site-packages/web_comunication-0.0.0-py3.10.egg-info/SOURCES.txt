@@ -1,0 +1,17 @@
+package.xml
+setup.cfg
+setup.py
+../../build/web_comunication/web_comunication.egg-info/PKG-INFO
+../../build/web_comunication/web_comunication.egg-info/SOURCES.txt
+../../build/web_comunication/web_comunication.egg-info/dependency_links.txt
+../../build/web_comunication/web_comunication.egg-info/entry_points.txt
+../../build/web_comunication/web_comunication.egg-info/requires.txt
+../../build/web_comunication/web_comunication.egg-info/top_level.txt
+../../build/web_comunication/web_comunication.egg-info/zip-safe
+resource/web_comunication
+test/test_copyright.py
+test/test_flake8.py
+test/test_pep257.py
+web_comunication/__init__.py
+web_comunication/listener.py
+web_comunication/talker.py

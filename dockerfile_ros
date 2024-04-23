@@ -1,0 +1,233 @@
+FROM osrf/ros:humble-desktop-full
+
+
+WORKDIR /ardupilot
+
+ENV NVIDIA_VISIBLE_DEVICES \
+    ${NVIDIA_VISIBLE_DEVICES:-all}
+ENV NVIDIA_DRIVER_CAPABILITIES \
+    ${NVIDIA_DRIVER_CAPABILITIES:+$NVIDIA_DRIVER_CAPABILITIES,}graphics
+ENV QT_X11_NO_MITSHM=1
+ENV EDITOR=nano
+ENV XDG_RUNTIME_DIR=/tmp
+
+# RUN apt-get update && apt-get install -y \
+#     cmake \
+#     curl \
+#     gazebo \
+#     libglu1-mesa-dev \
+#     nano \
+#     python3-pip \
+#     python3-pydantic \
+#     ros-humble-gazebo-ros \
+#     ros-humble-gazebo-ros-pkgs \
+#     ros-humble-joint-state-publisher \
+#     ros-humble-robot-localization \
+#     ros-humble-plotjuggler-ros \
+#     ros-humble-robot-state-publisher \
+#     ros-humble-ros2bag \
+#     ros-humble-rosbag2-storage-default-plugins \
+#     ros-humble-rqt-tf-tree \
+#     ros-humble-rmw-fastrtps-cpp \
+#     ros-humble-rmw-cyclonedds-cpp \
+#     ros-humble-slam-toolbox \
+#     ros-humble-turtlebot3 \
+#     ros-humble-turtlebot3-msgs \
+#     ros-humble-twist-mux \
+#     ros-humble-usb-cam \
+#     ros-humble-xacro \
+#     ruby-dev \
+#     rviz \
+#     tmux \
+#     wget \
+#     xorg-dev \
+#     zsh
+
+# Prevent bash to ask for user input which may break the building process
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install sudo, and some essential packages.
+RUN --mount=type=cache,sharing=locked,target=/var/cache/apt --mount=type=cache,sharing=locked,target=/var/lib/apt \
+    apt-get update && apt-get install --no-install-recommends -qqy \
+    bash-completion \
+    build-essential \
+    git \
+    gnupg \
+    lsb-release \
+    python3-dev python3-opencv python3-wxgtk4.0 python3-pip python3-matplotlib python3-lxml python3-pygame \
+    sudo \
+    tzdata \
+    wget \
+    nano \
+    gedit
+
+# Install Gazebo Garden
+RUN --mount=type=cache,sharing=locked,target=/var/cache/apt --mount=type=cache,sharing=locked,target=/var/lib/apt \
+    wget https://packages.osrfoundation.org/gazebo.gpg -O /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg \
+ && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null \
+ && apt-get update && apt-get install --no-install-recommends -qqy \
+    gz-garden \
+    libgz-sim7-dev \
+    rapidjson-dev \
+    ros-humble-ros-gz
+
+RUN pip3 install PyYAML mavproxy --user
+
+
+RUN apt update \
+&& apt install libgz-sim7-dev rapidjson-dev \
+&& mkdir -p gz_ws/src && cd gz_ws/src \
+&& git clone https://github.com/ArduPilot/ardupilot_gazebo \
+&& export GZ_VERSION=garden \
+&& cd ardupilot_gazebo \
+&& mkdir build && cd build \
+&& cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+&& make -j4 
+
+WORKDIR /ardupilot
+
+# RUN apt-get update \
+# &&cd gz_ws/src \
+# && apt-get install libcgal-dev libfftw3-dev -y \
+# && git clone https://github.com/srmainwaring/asv_wave_sim.git \
+# && cd asv_wave_sim \
+# && colcon build --symlink-install --merge-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_TESTING=ON -DCMAKE_CXX_STANDARD=17 \
+# # && source /ardupilot/gz_ws/asv_wave_sim/install/setup.bash \
+# && cd /ardupilot/gz_ws/src/asv_wave_sim/gz-waves/src/gui/plugins/waves_control \
+# && mkdir build && cd build \
+# && cmake .. && make 
+RUN mkdir -p gz_ws/src/asv_wave_sim
+COPY /asv_wave_sim /ardupilot/gz_ws/src/asv_wave_sim
+
+WORKDIR /ardupilot
+
+RUN apt-get update \
+&&cd gz_ws/src \
+&& apt-get install libcgal-dev libfftw3-dev -y \
+&& cd asv_wave_sim \
+&& colcon build --symlink-install --merge-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_TESTING=ON -DCMAKE_CXX_STANDARD=17 \
+# && source ./install/setup.bash \
+&& cd /ardupilot/gz_ws/src/asv_wave_sim/gz-waves/src/gui/plugins/waves_control \
+&& mkdir build && cd build \
+&& cmake .. && make 
+
+RUN echo 'export GZ_SIM_SYSTEM_PLUGIN_PATH=/ardupilot/gz_ws/src/ardupilot_gazebo/build:${GZ_SIM_SYSTEM_PLUGIN_PATH}' >> ~/.bashrc
+RUN echo 'export GZ_SIM_RESOURCE_PATH=/ardupilot/gz_ws/src/ardupilot_gazebo/models:/ardupilot/gz_ws/src/ardupilot_gazebo/worlds:${GZ_SIM_RESOURCE_PATH}' >> ~/.bashrc
+RUN echo 'export GZ_SIM_RESOURCE_PATH=$GZ_SIM_RESOURCE_PATH:/ardupilot/Gazebo/models:/ardupilot/Gazebo/worlds'
+RUN echo 'export GZ_SIM_RESOURCE_PATH=\
+$GZ_SIM_RESOURCE_PATH:\
+/ardupilot/gz_ws/src/asv_wave_sim/gz-waves-models/models:\
+/ardupilot/gz_ws/src/asv_wave_sim/gz-waves-models/world_models:\
+/ardupilot/gz_ws/src/asv_wave_sim/gz-waves-models/worlds'
+RUN echo 'export GZ_SIM_SYSTEM_PLUGIN_PATH=\
+$GZ_SIM_SYSTEM_PLUGIN_PATH:\
+/ardupilot/gz_ws/install/lib'
+RUN echo 'export GZ_GUI_PLUGIN_PATH=\
+$GZ_GUI_PLUGIN_PATH:\
+/ardupilot/gz_ws/src/asv_wave_sim/gz-waves/src/gui/plugins/waves_control/build'
+
+
+RUN pip3 install setuptools==58.2.0
+
+RUN wget https://github.com/openrr/urdf-viz/releases/download/v0.38.2/urdf-viz-x86_64-unknown-linux-gnu.tar.gz && \
+    tar -xvzf urdf-viz-x86_64-unknown-linux-gnu.tar.gz -C /usr/local/bin/ && \
+    chmod +x /usr/local/bin/urdf-viz && \
+    rm -f urdf-viz-x86_64-unknown-linux-gnu.tar.gz
+
+RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/v1.1.2/zsh-in-docker.sh)" -- \
+    -p git \
+    -p https://github.com/zsh-users/zsh-autosuggestions \
+    -p https://github.com/zsh-users/zsh-completions
+
+RUN gem install tmuxinator && \
+    wget https://raw.githubusercontent.com/tmuxinator/tmuxinator/master/completion/tmuxinator.zsh -O /usr/local/share/zsh/site-functions/_tmuxinator
+
+RUN apt-get autoremove -y \
+    && apt-get clean -y \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN echo "export DISABLE_AUTO_TITLE=true" >> /root/.zshrc
+RUN echo 'LC_NUMERIC="en_US.UTF-8"' >> /root/.zshrc
+RUN echo "source /opt/ros/humble/setup.zsh" >> /root/.zshrc
+RUN echo "source /usr/share/gazebo/setup.sh" >> /root/.zshrc
+
+RUN echo 'alias rosdi="rosdep install --from-paths src --ignore-src --rosdistro=${ROS_DISTRO} -y"' >> /root/.zshrc
+RUN echo 'alias cbuild="colcon build --symlink-install"' >> /root/.zshrc
+RUN echo 'alias ssetup="source ./install/local_setup.zsh"' >> /root/.zshrc
+RUN echo 'alias cyclone="export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp"' >> /root/.zshrc
+RUN echo 'alias fastdds="export RMW_IMPLEMENTATION=rmw_fastrtps_cpp"' >> /root/.zshrc
+RUN echo 'export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp' >> /root/.zshrc
+
+RUN echo "autoload -U bashcompinit" >> /root/.zshrc
+RUN echo "bashcompinit" >> /root/.zshrc
+RUN echo 'eval "$(register-python-argcomplete3 ros2)"' >> /root/.zshrc
+RUN echo 'eval "$(register-python-argcomplete3 colcon)"' >> /root/.zshrc
+
+
+# WORKDIR /test
+# COPY ./code/test /test
+
+
+WORKDIR /ardupilot
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG USER_NAME=ardupilot
+ARG USER_UID=1000
+ARG USER_GID=1000
+ARG SKIP_AP_EXT_ENV=1
+ARG SKIP_AP_GRAPHIC_ENV=1
+ARG SKIP_AP_COV_ENV=1
+ARG SKIP_AP_GIT_CHECK=1
+
+RUN groupadd ${USER_NAME} --gid ${USER_GID}\
+    && useradd -l -m ${USER_NAME} -u ${USER_UID} -g ${USER_GID} -s /bin/bash
+
+RUN apt-get update && apt-get install --no-install-recommends -y \
+    lsb-release \
+    sudo \
+    tzdata \
+    bash-completion
+
+# COPY ardupilot/Tools/environment_install/install-prereqs-ubuntu.sh /ardupilot/Tools/environment_install/
+# COPY ardupilot/Tools/completion /ardupilot/Tools/completion/
+RUN git clone --recurse-submodules https://github.com/ArduPilot/ardupilot.git 
+# Create non root user for pip
+ENV USER=${USER_NAME}
+
+RUN echo "ardupilot ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USER_NAME}
+RUN chmod 0440 /etc/sudoers.d/${USER_NAME}
+
+RUN chown -R ${USER_NAME}:${USER_NAME} /${USER_NAME}
+
+USER ${USER_NAME}
+
+ENV SKIP_AP_EXT_ENV=$SKIP_AP_EXT_ENV SKIP_AP_GRAPHIC_ENV=$SKIP_AP_GRAPHIC_ENV SKIP_AP_COV_ENV=$SKIP_AP_COV_ENV SKIP_AP_GIT_CHECK=$SKIP_AP_GIT_CHECK
+
+RUN /ardupilot/ardupilot/Tools/environment_install/install-prereqs-ubuntu.sh -y
+
+# add waf alias to ardupilot waf to .ardupilot_env
+RUN echo "alias waf=\"/${USER_NAME}/waf\"" >> ~/.ardupilot_env
+
+# Check that local/bin are in PATH for pip --user installed package
+RUN echo "if [ -d \"\$HOME/.local/bin\" ] ; then\nPATH=\"\$HOME/.local/bin:\$PATH\"\nfi" >> ~/.ardupilot_env
+
+# Create entrypoint as docker cannot do shell substitution correctly
+RUN export ARDUPILOT_ENTRYPOINT="/home/${USER_NAME}/ardupilot_entrypoint.sh" \
+    && echo "#!/bin/bash" > $ARDUPILOT_ENTRYPOINT \
+    && echo "set -e" >> $ARDUPILOT_ENTRYPOINT \
+    && echo "source /home/${USER_NAME}/.ardupilot_env" >> $ARDUPILOT_ENTRYPOINT \
+    && echo 'exec "$@"' >> $ARDUPILOT_ENTRYPOINT \
+    && chmod +x $ARDUPILOT_ENTRYPOINT \
+    && sudo mv $ARDUPILOT_ENTRYPOINT /ardupilot_entrypoint.sh
+
+# Set the buildlogs directory into /tmp as other directory aren't accessible
+ENV BUILDLOGS=/tmp/buildlogs
+
+# Cleanup
+RUN sudo apt-get clean \
+    && sudo rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+COPY /SITL_Models /ardupilot
+ENV CCACHE_MAXSIZE=1G
+ENTRYPOINT ["/ardupilot_entrypoint.sh"]
+
+CMD [ "bash" ]
