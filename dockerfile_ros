@@ -230,4 +230,26 @@ COPY /SITL_Models /ardupilot
 ENV CCACHE_MAXSIZE=1G
 ENTRYPOINT ["/ardupilot_entrypoint.sh"]
 
-CMD [ "bash" ]
+
+RUN /bin/bash -c "source /ardupilot/gz_ws/src/asv_wave_sim/install/setup.bash"
+# RUN export GZ_SIM_SYSTEM_PLUGIN_PATH=/ardupilot/gz_ws/src/ardupilot_gazebo/build:${GZ_SIM_SYSTEM_PLUGIN_PATH}
+
+# RUN /bin/bash -c "export GZ_SIM_SYSTEM_PLUGIN_PATH=/ardupilot/gz_ws/src/ardupilot_gazebo/build:${GZ_SIM_SYSTEM_PLUGIN_PATH}"
+# RUN /bin/bash -c "export GZ_SIM_RESOURCE_PATH=/ardupilot/gz_ws/src/ardupilot_gazebo/models:/ardupilot/gz_ws/src/ardupilot_gazebo/worlds:${GZ_SIM_RESOURCE_PATH}"
+# RUN /bin/bash -c "export GZ_SIM_RESOURCE_PATH=\
+# $GZ_SIM_RESOURCE_PATH:\
+# /ardupilot/gz_ws/src/asv_wave_sim/gz-waves-models/models:\
+# /ardupilot/gz_ws/src/asv_wave_sim/gz-waves-models/world_models:\
+# /ardupilot/gz_ws/src/asv_wave_sim/gz-waves-models/worlds"
+# RUN /bin/bash -c "export GZ_SIM_SYSTEM_PLUGIN_PATH=\
+# $GZ_SIM_SYSTEM_PLUGIN_PATH:\
+# /ardupilot/gz_ws/install/lib"
+# RUN /bin/bash -c "export GZ_GUI_PLUGIN_PATH=\
+# $GZ_GUI_PLUGIN_PATH:\
+# /ardupilot/gz_ws/src/asv_wave_sim/gz-waves/src/gui/plugins/waves_control/build"
+# RUN /bin/bash -c "export GZ_SIM_RESOURCE_PATH=$GZ_SIM_RESOURCE_PATH:/ardupilot/Gazebo/models:/ardupilot/Gazebo/worlds"
+RUN /bin/bash -c "source ~/.bashrc"
+WORKDIR /ardupilot
+COPY ./exec /ardupilot
+RUN /bin/bash -c ". ./exec_system.sh"
+CMD [ "/bin/bash","-c",". ./exec_system.sh" ]
